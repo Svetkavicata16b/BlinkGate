@@ -1,6 +1,10 @@
 import tkinter as tk
 import time
 from consts import morse_code_english_dict
+import cv2
+import mediapipe as mp
+from mediapipe.tasks.python import vision
+import math
 
 
 class Model:
@@ -10,6 +14,38 @@ class Model:
         self.prev_eyes = [False, False]
         self.prev_prev_eyes = [False, False]
         self.prev_time = 0
+        self.vc = cv2.VideoCapture(0)
+        self.model_path = "resources/face_landmarker.task"
+        self.BaseOptions = mp.tasks.BaseOptions
+        self.FaceLandmarker = vision.FaceLandmarker
+        self.FaceLandmarkerOptions = vision.FaceLandmarkerOptions
+        self.FaceLandmarkerResult = mp.tasks.vision.FaceLandmarkerResult
+        self.VisionRunningMode = vision.RunningMode
+
+    def euclidean_dist(self, a, b):
+        return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+
+    def to_signal(self):
+
+        options = self.FaceLandmarkerOptions(
+            base_options=self.BaseOptions(model_asset_path=self.model_path, delegate=None),
+            running_mode=self.VisionRunningMode.IMAGE
+        )
+
+        with self.FaceLandmarker.create_from_options(options) as landmarker:
+            success, frame = self.vc.read()
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            face_landmarker_result = landmarker.detect(mp_image)
+            print(face_landmarker_result)
+
+        if len(face_landmarker_result.face_landmarks) != 0:
+            fl = face_landmarker_result.face_landmarks[0]
+            left_eye_ear = self.euclidean_dist(fl[374], fl[386]) / self.euclidean_dist(fl[263], fl[362])
+            right_eye_ear = self.euclidean_dist(fl[145], fl[159]) / self.euclidean_dist(fl[133], fl[33])
+            return [left_eye_ear < 0.2, right_eye_ear < 0.2]
+
+        return [False, False]
 
     def to_morse_code(self, eyes):
         separator = ""
@@ -88,18 +124,8 @@ class Controller:
         self.view = View()
 
     def main(self):
-        self.view.screen.bind_all("<Left>", self.on_key_press)
-        self.view.screen.bind_all("<Right>", self.on_key_press)
-
-        self.view.screen.mainloop()
-
-    def on_key_press(self, event):
-        if event.keysym == "Left":
-            self.model.to_morse_code([True, False])
-        if event.keysym == "Right":
-            self.model.to_morse_code([False, True])
-
-        morse_symbol, separator = self.model.to_morse_code([False, False])
+        eyes = self.model.to_signal()
+        morse_symbol, separator = self.model.to_morse_code(eyes)
 
         self.view.add_morse_code(morse_symbol, separator)
 
@@ -110,6 +136,8 @@ class Controller:
             self.view.replace_text(letter)
         else:
             self.view.add_text(letter, separator)
+
+        self.view.screen.mainloop()
 
 
 if __name__ == "__main__":
