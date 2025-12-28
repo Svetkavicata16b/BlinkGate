@@ -8,49 +8,69 @@ import math
 
 
 class Model:
-    def __init__(self, morse_code_language_dict):
+    def __init__(self, morse_code_language_dict, callback):
         self.morse_code_language_dict = morse_code_language_dict
         self.letter = ""
         self.prev_eyes = [False, False]
-        self.prev_prev_eyes = [False, False]
+        self.is_eyes_clear = False
         self.prev_time = 0
+
         self.vc = cv2.VideoCapture(0)
         self.model_path = "resources/face_landmarker.task"
+
         self.BaseOptions = mp.tasks.BaseOptions
         self.FaceLandmarker = vision.FaceLandmarker
         self.FaceLandmarkerOptions = vision.FaceLandmarkerOptions
         self.FaceLandmarkerResult = mp.tasks.vision.FaceLandmarkerResult
         self.VisionRunningMode = vision.RunningMode
 
+        self.options = self.FaceLandmarkerOptions(
+            base_options=self.BaseOptions(model_asset_path=self.model_path, delegate=None),
+            running_mode=self.VisionRunningMode.LIVE_STREAM,
+            result_callback=callback
+        )
+
+        self.landmarker = self.FaceLandmarker.create_from_options(self.options)
+        self.start_time = time.time()
+
     def euclidean_dist(self, a, b):
         return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 
     def to_signal(self):
+        success, frame = self.vc.read()
 
-        options = self.FaceLandmarkerOptions(
-            base_options=self.BaseOptions(model_asset_path=self.model_path, delegate=None),
-            running_mode=self.VisionRunningMode.IMAGE
-        )
+        if not success:
+            print("Failed to read frame. There is problem with video input.")
 
-        with self.FaceLandmarker.create_from_options(options) as landmarker:
-            success, frame = self.vc.read()
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-            face_landmarker_result = landmarker.detect(mp_image)
-            print(face_landmarker_result)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
+        frame_timestamp_ms = int((time.time() - self.start_time) * 1000)
+
+        self.landmarker.detect_async(mp_image, frame_timestamp_ms)
+
+    def to_eyes(self, face_landmarker_result):
         if len(face_landmarker_result.face_landmarks) != 0:
             fl = face_landmarker_result.face_landmarks[0]
-            left_eye_ear = self.euclidean_dist(fl[374], fl[386]) / self.euclidean_dist(fl[263], fl[362])
-            right_eye_ear = self.euclidean_dist(fl[145], fl[159]) / self.euclidean_dist(fl[133], fl[33])
-            return [left_eye_ear < 0.2, right_eye_ear < 0.2]
+
+            left_eye_ear = (self.euclidean_dist(fl[385], fl[380]) + self.euclidean_dist(fl[387], fl[373])) / (2 * self.euclidean_dist(fl[362], fl[263]))
+            right_eye_ear = (self.euclidean_dist(fl[160], fl[144]) + self.euclidean_dist(fl[158], fl[153])) / (2 * self.euclidean_dist(fl[33], fl[133]))
+
+            # print(left_eye_ear)
+            # print(right_eye_ear)
+            # print()
+
+            return [left_eye_ear < 0.15, right_eye_ear < 0.15]
 
         return [False, False]
 
-    def to_morse_code(self, eyes):
+    def to_morse_code(self, eyes: list[bool]):
         separator = ""
         morse_symbol = ""
-        if self.prev_prev_eyes == eyes == [False, False] and self.prev_eyes[0] != self.prev_eyes[1]:
+
+        # print([eyes, self.prev_eyes, self.is_eyes_clear])
+
+        if eyes == [False, False] and self.prev_eyes[0] != self.prev_eyes[1] and self.is_eyes_clear:
             current_time = time.time()
 
             if self.prev_time != 0:
@@ -65,8 +85,12 @@ class Model:
                 morse_symbol = "-"
 
             self.prev_time = current_time
+        elif eyes != [False, False] and (self.prev_eyes != eyes and self.prev_eyes != [False, False]):
+            self.is_eyes_clear = False
 
-        self.prev_prev_eyes = self.prev_eyes
+        if eyes == [False, False]:
+            self.is_eyes_clear = True
+
         self.prev_eyes = eyes
 
         return morse_symbol, separator
@@ -120,11 +144,15 @@ class View:
 
 class Controller:
     def __init__(self):
-        self.model = Model(morse_code_english_dict)
+        self.model = Model(morse_code_english_dict, self.process_signal)
         self.view = View()
 
     def main(self):
-        eyes = self.model.to_signal()
+        self.model.to_signal()
+        self.view.screen.after(10, self.main)
+
+    def process_signal(self, face_landmarker_result, image, timestamp_ms):
+        eyes = self.model.to_eyes(face_landmarker_result)
         morse_symbol, separator = self.model.to_morse_code(eyes)
 
         self.view.add_morse_code(morse_symbol, separator)
@@ -137,9 +165,7 @@ class Controller:
         else:
             self.view.add_text(letter, separator)
 
-        self.view.screen.mainloop()
-
-
 if __name__ == "__main__":
     controller = Controller()
     controller.main()
+    controller.view.screen.mainloop()
