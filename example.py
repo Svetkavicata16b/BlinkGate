@@ -96,6 +96,7 @@ def process_result(face_landmarker_result: FaceLandmarkerResult, image: mp.Image
 
         print(left_eye_ear)
         print(right_eye_ear)
+        print("This is example.py!")
         print()
 
         if left_eye_ear < 0.1 and right_eye_ear < 0.1:

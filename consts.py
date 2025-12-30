@@ -1,4 +1,5 @@
 morse_code_english_dict = {
+    "language": "english",
     ".-": "A",
     "-...": "B",
     "-.-.": "C",
@@ -47,4 +48,8 @@ morse_code_english_dict = {
     "-.-.--": "!",
     ".-.-.": "+",
     "": ""
+}
+
+language_letters_count_dict = {
+    "english": 26
 }

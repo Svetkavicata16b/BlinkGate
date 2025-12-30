@@ -1,10 +1,15 @@
 import tkinter as tk
 import time
+
+import PIL
+
 from consts import morse_code_english_dict
+from consts import language_letters_count_dict
 import cv2
 import mediapipe as mp
 from mediapipe.tasks.python import vision
 import math
+from PIL import ImageTk, Image
 
 
 class Model:
@@ -36,17 +41,19 @@ class Model:
     def euclidean_dist(self, a, b):
         return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 
-    def to_signal(self):
+    def get_camera_frame(self):
         success, frame = self.vc.read()
 
         if not success:
             print("Failed to read frame. There is problem with video input.")
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        return rgb_frame
+
+    def to_signal(self, rgb_frame):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-
         frame_timestamp_ms = int((time.time() - self.start_time) * 1000)
-
         self.landmarker.detect_async(mp_image, frame_timestamp_ms)
 
     def to_eyes(self, face_landmarker_result):
@@ -60,7 +67,7 @@ class Model:
             # print(right_eye_ear)
             # print()
 
-            return [left_eye_ear < 0.15, right_eye_ear < 0.15]
+            return [left_eye_ear < 0.18, right_eye_ear < 0.18]
 
         return [False, False]
 
@@ -111,26 +118,88 @@ class Model:
 
 
 class View:
-    def __init__(self):
+    def __init__(self, morse_code_language_dict, language_letters_count_dict):
+        self.morse_code_language_dict = morse_code_language_dict
+        self.language_letters_count_dict = language_letters_count_dict
         self.screen = tk.Tk()
         self.screen.state("zoomed")
         self.screen.title("BlinkGate")
         self.screen.iconphoto(False, tk.PhotoImage(file="images/visible.png"))
+        self.open_eye_image = ImageTk.PhotoImage(Image.open("images/visible.png").resize((100, 100)))
+        self.closed_eye_image = ImageTk.PhotoImage(Image.open("images/hidden.png").resize((100, 100)))
+        self.change_camera_frame_image = 0
 
-        self.morse_code = tk.Text(self.screen, height=1, width=1, state="disabled", font=("Arial", 20))
-        self.text = tk.Text(self.screen, height=1, width=1, state="disabled", font=("Arial", 20))
-        self.morse_code.pack(fill="both", side="left", expand=True)
-        self.text.pack(fill="both", side="right", expand=True)
+        self.morse_code_table_frame = tk.Frame(self.screen)
+        self.camera_frame = tk.Frame(self.screen)
+        self.left_eye_frame = tk.Frame(self.camera_frame)
+        self.right_eye_frame = tk.Frame(self.camera_frame)
+        self.translation_frame = tk.Frame(self.screen)
+        self.morse_code_frame = tk.Frame(self.translation_frame)
+        self.text_frame = tk.Frame(self.translation_frame)
+
+        self.morse_code_letters_table = tk.Text(self.morse_code_table_frame, width=12, state="disabled", font=("Courier New", 20))
+        self.morse_code_numbers_and_symbols_table = tk.Text(self.morse_code_table_frame, width=12, state="disabled", font=("Courier New", 20))
+        self.camera_image = tk.Label(self.camera_frame)
+        self.left_eye_image = tk.Label(self.left_eye_frame, image=self.open_eye_image)
+        self.dot = tk.Label(self.left_eye_frame, text=".", font=("Courier New", 20))
+        self.right_eye_image = tk.Label(self.right_eye_frame, image=self.open_eye_image)
+        self.dash = tk.Label(self.right_eye_frame, text="-", font=("Courier New", 20))
+        self.morse_code = tk.Text(self.morse_code_frame, state="disabled", font=("Courier New", 20))
+        self.text = tk.Text(self.text_frame, state="disabled", font=("Courier New", 20))
+
+        self.morse_code_letters_table.pack(side="left", fill="y")
+        self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y")
+        self.camera_image.pack(side="bottom")
+        self.morse_code.pack(fill="both", expand=True)
+        self.left_eye_image.pack(side="bottom", padx=50, pady=50)
+        self.dot.pack(side="top")
+        self.right_eye_image.pack(side="bottom", padx=50, pady=50)
+        self.dash.pack(side="top")
+        self.text.pack(fill="both", expand=True)
+
+        self.morse_code_table_frame.pack(side="left", fill="y")
+        self.left_eye_frame.pack(side="left")
+        self.right_eye_frame.pack(side="right")
+        self.camera_frame.pack(side="left")
+        self.morse_code_frame.pack_propagate(False)
+        self.text_frame.pack_propagate(False)
+        self.morse_code_frame.pack(side="top", fill="both", expand=True)
+        self.text_frame.pack(side="bottom", fill="both", expand=True)
+        self.translation_frame.pack(side="left", fill="both", expand=True)
+
+    def fill_morse_code_tables(self):
+        self.morse_code_letters_table.configure(state="normal")
+
+        for i in range(1, self.language_letters_count_dict[self.morse_code_language_dict["language"]] + 1):
+            key = list(self.morse_code_language_dict.keys())[i]
+            self.morse_code_letters_table.insert("end", f"{self.morse_code_language_dict[key]} -> {key}\n")
+
+        self.morse_code_letters_table.configure(state="disabled")
+
+        self.morse_code_numbers_and_symbols_table.configure(state="normal")
+
+        for i in range(self.language_letters_count_dict[self.morse_code_language_dict["language"]] + 1, len(self.morse_code_language_dict)):
+            key = list(self.morse_code_language_dict.keys())[i]
+            self.morse_code_numbers_and_symbols_table.insert("end", f"{self.morse_code_language_dict[key]} {bool(len(key)) * '->'} {key}\n")
+
+        self.morse_code_numbers_and_symbols_table.configure(state="disabled")
+
+    def change_camera_frame(self, frame):
+        self.camera_image.configure(image=frame)
+
+    def change_eye_ions(self, eyes):
+        self.left_eye_image.configure(image={True: self.closed_eye_image, False: self.open_eye_image}[eyes[0]])
+        self.right_eye_image.configure(image={True: self.closed_eye_image, False: self.open_eye_image}[eyes[1]])
 
     def add_morse_code(self, morse_code, separator):
         self.morse_code.configure(state="normal")
-        self.morse_code.insert("insert", separator + morse_code)
+        self.morse_code.insert("end", separator + morse_code)
         self.morse_code.see("end")
         self.morse_code.configure(state="disabled")
 
     def add_text(self, letter, separator):
         self.text.configure(state="normal")
-        self.text.insert("insert", separator + letter)
+        self.text.insert("end", separator + letter)
         self.text.see("end")
         self.text.configure(state="disabled")
 
@@ -143,16 +212,27 @@ class View:
 
 
 class Controller:
-    def __init__(self):
+    def __init__(self, morse_code_language_dict, language_letters_count_dict):
+        self.morse_code_language_dict = morse_code_language_dict
+        self.language_letters_count_dict = language_letters_count_dict
         self.model = Model(morse_code_english_dict, self.process_signal)
-        self.view = View()
+        self.view = View(self.morse_code_language_dict, self.language_letters_count_dict)
+        self.view.fill_morse_code_tables()
 
     def main(self):
-        self.model.to_signal()
+        rgb_frame = self.model.get_camera_frame()
+        self.model.to_signal(rgb_frame)
         self.view.screen.after(10, self.main)
 
     def process_signal(self, face_landmarker_result, image, timestamp_ms):
+        current_camera_frame = ImageTk.PhotoImage(image=(Image.fromarray(image.numpy_view())).transpose(method=Image.FLIP_LEFT_RIGHT))
+        self.view.change_camera_frame(current_camera_frame)
+        self.view.change_camera_frame_image = current_camera_frame
+
         eyes = self.model.to_eyes(face_landmarker_result)
+
+        self.view.change_eye_ions(eyes)
+
         morse_symbol, separator = self.model.to_morse_code(eyes)
 
         self.view.add_morse_code(morse_symbol, separator)
@@ -166,6 +246,6 @@ class Controller:
             self.view.add_text(letter, separator)
 
 if __name__ == "__main__":
-    controller = Controller()
+    controller = Controller(morse_code_english_dict, language_letters_count_dict)
     controller.main()
     controller.view.screen.mainloop()
