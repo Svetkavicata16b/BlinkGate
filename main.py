@@ -3,6 +3,7 @@ import time
 
 import PIL
 
+import consts
 from consts import morse_code_english_dict
 from consts import language_letters_count_dict
 import cv2
@@ -49,7 +50,7 @@ class Model:
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        return rgb_frame
+        return frame, rgb_frame
 
     def to_signal(self, rgb_frame):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
@@ -191,6 +192,28 @@ class View:
         self.left_eye_image.configure(image={True: self.closed_eye_image, False: self.open_eye_image}[eyes[0]])
         self.right_eye_image.configure(image={True: self.closed_eye_image, False: self.open_eye_image}[eyes[1]])
 
+    def draw_eyes(self, image, face_landmarker_result, left_eye, right_eye, color):
+        if len(face_landmarker_result.face_landmarks) != 0:
+            fl = face_landmarker_result.face_landmarks[0]
+            h, w = image.shape[:2]
+
+            # for i in left_eye + right_eye:
+            #     lm = fl[i]
+            #     x, y = int(lm.x * w), int(lm.y * h)
+            #     cv2.circle(image, (x, y), 2, color, -1)
+
+            for eye in [left_eye, right_eye]:
+                for i in range(len(eye)):
+                    p1 = fl[eye[i]]
+                    p2 = fl[eye[(i + 1) % len(eye)]]
+
+                    x1, y1 = int(p1.x * w), int(p1.y * h)
+                    x2, y2 = int(p2.x * w), int(p2.y * h)
+
+                    cv2.line(image, (x1, y1), (x2, y2), color, 1)
+
+        return image
+
     def add_morse_code(self, morse_code, separator):
         self.morse_code.configure(state="normal")
         self.morse_code.insert("end", separator + morse_code)
@@ -204,27 +227,33 @@ class View:
         self.text.configure(state="disabled")
 
     def replace_text(self, letter):
-        self.text.configure(state="normal")
-        self.text.delete("end-2c")
-        self.text.insert("insert", letter)
-        self.text.see("end")
-        self.text.configure(state="disabled")
+        if letter != self.text.get("end-2c"):
+            self.text.configure(state="normal")
+            self.text.delete("end-2c")
+            self.text.insert("insert", letter)
+            self.text.see("end")
+            self.text.configure(state="disabled")
+            print(self.text.get("end-2c"))
 
 
 class Controller:
-    def __init__(self, morse_code_language_dict, language_letters_count_dict):
+    def __init__(self, morse_code_language_dict, language_letters_count_dict, left_eye, right_eye):
         self.morse_code_language_dict = morse_code_language_dict
         self.language_letters_count_dict = language_letters_count_dict
+        self.left_eye = left_eye
+        self.right_eye = right_eye
         self.model = Model(morse_code_english_dict, self.process_signal)
         self.view = View(self.morse_code_language_dict, self.language_letters_count_dict)
         self.view.fill_morse_code_tables()
+        self.frame = None
 
     def main(self):
-        rgb_frame = self.model.get_camera_frame()
+        self.frame, rgb_frame = self.model.get_camera_frame()
         self.model.to_signal(rgb_frame)
         self.view.screen.after(10, self.main)
 
     def process_signal(self, face_landmarker_result, image, timestamp_ms):
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(self.view.draw_eyes(self.frame, face_landmarker_result, self.left_eye, self.right_eye, (0, 255, 0)), cv2.COLOR_BGR2RGB))
         current_camera_frame = ImageTk.PhotoImage(image=(Image.fromarray(image.numpy_view())).transpose(method=Image.FLIP_LEFT_RIGHT))
         self.view.change_camera_frame(current_camera_frame)
         self.view.change_camera_frame_image = current_camera_frame
@@ -246,6 +275,6 @@ class Controller:
             self.view.add_text(letter, separator)
 
 if __name__ == "__main__":
-    controller = Controller(morse_code_english_dict, language_letters_count_dict)
+    controller = Controller(morse_code_english_dict, language_letters_count_dict, consts.LEFT_EYE, consts.RIGHT_EYE)
     controller.main()
     controller.view.screen.mainloop()
