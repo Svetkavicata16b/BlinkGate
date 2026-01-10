@@ -143,55 +143,55 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 # Eye landmark indices
-LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155,
-            133, 173, 157, 158, 159, 160, 161, 246]
-
-RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249,
-             263, 466, 388, 387, 386, 385, 384, 398]
-
-# Load image
-image = cv2.imread("images/face.png")
-h, w, _ = image.shape
-rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-mp_image = mp.Image(
-    image_format=mp.ImageFormat.SRGB,
-    data=rgb
-)
-
-# FaceLandmarker
-options = vision.FaceLandmarkerOptions(
-    base_options=python.BaseOptions(
-        model_asset_path="resources/face_landmarker.task"
-    ),
-    num_faces=1
-)
-
-with vision.FaceLandmarker.create_from_options(options) as landmarker:
-    result = landmarker.detect(mp_image)
-
-# Draw only eyes
-if result.face_landmarks:
-    face = result.face_landmarks[0]
-
-    for idx in LEFT_EYE + RIGHT_EYE:
-        lm = face[idx]
-        x, y = int(lm.x * w), int(lm.y * h)
-        cv2.circle(image, (x, y), 2, (0, 255, 0), -1)
-
-def draw_loop(indices, color):
-    for i in range(len(indices)):
-        p1 = face[indices[i]]
-        p2 = face[indices[(i + 1) % len(indices)]]
-
-        x1, y1 = int(p1.x * w), int(p1.y * h)
-        x2, y2 = int(p2.x * w), int(p2.y * h)
-
-        cv2.line(image, (x1, y1), (x2, y2), color, 1)
-
-draw_loop(LEFT_EYE, (0, 255, 0))
-draw_loop(RIGHT_EYE, (0, 255, 0))
-
-cv2.imshow("Eyes Only", image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155,
+#             133, 173, 157, 158, 159, 160, 161, 246]
+#
+# RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249,
+#              263, 466, 388, 387, 386, 385, 384, 398]
+#
+# # Load image
+# image = cv2.imread("../images/face.png")
+# h, w, _ = image.shape
+# rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#
+# mp_image = mp.Image(
+#     image_format=mp.ImageFormat.SRGB,
+#     data=rgb
+# )
+#
+# # FaceLandmarker
+# options = vision.FaceLandmarkerOptions(
+#     base_options=python.BaseOptions(
+#         model_asset_path="../resources/face_landmarker.task"
+#     ),
+#     num_faces=1
+# )
+#
+# with vision.FaceLandmarker.create_from_options(options) as landmarker:
+#     result = landmarker.detect(mp_image)
+#
+# # Draw only eyes
+# if result.face_landmarks:
+#     face = result.face_landmarks[0]
+#
+#     for idx in LEFT_EYE + RIGHT_EYE:
+#         lm = face[idx]
+#         x, y = int(lm.x * w), int(lm.y * h)
+#         cv2.circle(image, (x, y), 2, (0, 255, 0), -1)
+#
+# def draw_loop(indices, color):
+#     for i in range(len(indices)):
+#         p1 = face[indices[i]]
+#         p2 = face[indices[(i + 1) % len(indices)]]
+#
+#         x1, y1 = int(p1.x * w), int(p1.y * h)
+#         x2, y2 = int(p2.x * w), int(p2.y * h)
+#
+#         cv2.line(image, (x1, y1), (x2, y2), color, 1)
+#
+# draw_loop(LEFT_EYE, (0, 255, 0))
+# draw_loop(RIGHT_EYE, (0, 255, 0))
+#
+# cv2.imshow("Eyes Only", image)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()

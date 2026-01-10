@@ -1,8 +1,6 @@
 import tkinter as tk
 import time
 
-import PIL
-
 import consts
 from consts import morse_code_english_dict
 from consts import language_letters_count_dict
@@ -22,7 +20,7 @@ class Model:
         self.prev_time = 0
 
         self.vc = cv2.VideoCapture(0)
-        self.model_path = "resources/face_landmarker.task"
+        self.model_path = "../resources/face_landmarker.task"
 
         self.BaseOptions = mp.tasks.BaseOptions
         self.FaceLandmarker = vision.FaceLandmarker
@@ -125,9 +123,9 @@ class View:
         self.screen = tk.Tk()
         self.screen.state("zoomed")
         self.screen.title("BlinkGate")
-        self.screen.iconphoto(False, tk.PhotoImage(file="images/visible.png"))
-        self.open_eye_image = ImageTk.PhotoImage(Image.open("images/visible.png").resize((100, 100)))
-        self.closed_eye_image = ImageTk.PhotoImage(Image.open("images/hidden.png").resize((100, 100)))
+        self.screen.iconphoto(False, tk.PhotoImage(file="../images/visible.png"))
+        self.open_eye_image = ImageTk.PhotoImage(Image.open("../images/visible.png").resize((100, 100)))
+        self.closed_eye_image = ImageTk.PhotoImage(Image.open("../images/hidden.png").resize((100, 100)))
         self.change_camera_frame_image = 0
 
         self.morse_code_table_frame = tk.Frame(self.screen)
