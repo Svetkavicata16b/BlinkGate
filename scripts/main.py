@@ -115,9 +115,15 @@ class Model:
         except KeyError:
             return "#", separator
 
+    def reset(self):
+        self.letter = ""
+        self.prev_eyes = [False, False]
+        self.is_eyes_clear = False
+        self.prev_time = 0
+
 
 class View:
-    def __init__(self, morse_code_language_dict, language_letters_count_dict):
+    def __init__(self, morse_code_language_dict, language_letters_count_dict, clearing_callback_function):
         self.morse_code_language_dict = morse_code_language_dict
         self.language_letters_count_dict = language_letters_count_dict
         self.screen = tk.Tk()
@@ -143,12 +149,14 @@ class View:
         self.dot = tk.Label(self.left_eye_frame, text=".", font=("Courier New", 20))
         self.right_eye_image = tk.Label(self.right_eye_frame, image=self.open_eye_image)
         self.dash = tk.Label(self.right_eye_frame, text="-", font=("Courier New", 20))
+        self.clear_btn = tk.Button(self.translation_frame, text="Clear Text", font=("Courier New", 20), height=1, command=clearing_callback_function)
         self.morse_code = tk.Text(self.morse_code_frame, state="disabled", font=("Courier New", 20))
         self.text = tk.Text(self.text_frame, state="disabled", font=("Courier New", 20))
 
         self.morse_code_letters_table.pack(side="left", fill="y")
         self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y")
         self.camera_image.pack(side="bottom")
+        self.clear_btn.pack(side="top", fill="x")
         self.morse_code.pack(fill="both", expand=True)
         self.left_eye_image.pack(side="bottom", padx=50, pady=50)
         self.dot.pack(side="top")
@@ -231,7 +239,14 @@ class View:
             self.text.insert("insert", letter)
             self.text.see("end")
             self.text.configure(state="disabled")
-            print(self.text.get("end-2c"))
+
+    def clear_morse_code_and_text(self):
+        self.morse_code.configure(state="normal")
+        self.morse_code.delete("1.0", tk.END)
+        self.morse_code.configure(state="disabled")
+        self.text.configure(state="normal")
+        self.text.delete("1.0", tk.END)
+        self.text.configure(state="disabled")
 
 
 class Controller:
@@ -241,7 +256,7 @@ class Controller:
         self.left_eye = left_eye
         self.right_eye = right_eye
         self.model = Model(morse_code_english_dict, self.process_signal)
-        self.view = View(self.morse_code_language_dict, self.language_letters_count_dict)
+        self.view = View(self.morse_code_language_dict, self.language_letters_count_dict, self.reset)
         self.view.fill_morse_code_tables()
         self.frame = None
 
@@ -271,6 +286,10 @@ class Controller:
             self.view.replace_text(letter)
         else:
             self.view.add_text(letter, separator)
+
+    def reset(self):
+        self.model.reset()
+        self.view.clear_morse_code_and_text()
 
 if __name__ == "__main__":
     controller = Controller(morse_code_english_dict, language_letters_count_dict, consts.LEFT_EYE, consts.RIGHT_EYE)
