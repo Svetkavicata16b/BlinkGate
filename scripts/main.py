@@ -2,8 +2,6 @@ import tkinter as tk
 import time
 
 import consts
-from consts import morse_code_english_dict
-from consts import language_letters_count_dict
 import cv2
 import mediapipe as mp
 from mediapipe.tasks.python import vision
@@ -121,6 +119,9 @@ class Model:
         self.is_eyes_clear = False
         self.prev_time = 0
 
+    def change_language(self, new_morse_code_language_dict):
+        self.morse_code_language_dict = new_morse_code_language_dict
+
 
 class View:
     def __init__(self, morse_code_language_dict, language_letters_count_dict, clearing_callback_function):
@@ -132,9 +133,11 @@ class View:
         self.screen.iconphoto(False, tk.PhotoImage(file="../images/visible.png"))
         self.open_eye_image = ImageTk.PhotoImage(Image.open("../images/visible.png").resize((100, 100)))
         self.closed_eye_image = ImageTk.PhotoImage(Image.open("../images/hidden.png").resize((100, 100)))
-        self.change_camera_frame_image = 0
+        self.change_camera_frame_image = None
+        self.language = tk.StringVar(self.screen, value="english")
 
         self.morse_code_table_frame = tk.Frame(self.screen)
+        self.inside_morse_code_table_frame = tk.Frame(self.morse_code_table_frame)
         self.camera_frame = tk.Frame(self.screen)
         self.left_eye_frame = tk.Frame(self.camera_frame)
         self.right_eye_frame = tk.Frame(self.camera_frame)
@@ -142,8 +145,11 @@ class View:
         self.morse_code_frame = tk.Frame(self.translation_frame)
         self.text_frame = tk.Frame(self.translation_frame)
 
-        self.morse_code_letters_table = tk.Text(self.morse_code_table_frame, width=12, state="disabled", font=("Courier New", 20))
-        self.morse_code_numbers_and_symbols_table = tk.Text(self.morse_code_table_frame, width=12, state="disabled", font=("Courier New", 20))
+        self.languages = tk.OptionMenu(self.morse_code_table_frame, self.language, *["english", "bulgarian"])
+        self.languages.configure(font=("Courier New", 20), indicatoron=False)
+        self.languages["menu"].configure(font=("Courier New", 20))
+        self.morse_code_letters_table = tk.Text(self.inside_morse_code_table_frame, width=12, state="disabled", font=("Courier New", 16))
+        self.morse_code_numbers_and_symbols_table = tk.Text(self.inside_morse_code_table_frame, width=12, state="disabled", font=("Courier New", 16))
         self.camera_image = tk.Label(self.camera_frame)
         self.left_eye_image = tk.Label(self.left_eye_frame, image=self.open_eye_image)
         self.dot = tk.Label(self.left_eye_frame, text=".", font=("Courier New", 20))
@@ -154,13 +160,15 @@ class View:
         self.text = tk.Text(self.text_frame, state="disabled", font=("Courier New", 20))
 
         self.morse_code_letters_table.pack(side="left", fill="y")
+        self.languages.pack(side="top", fill="x")
+        self.inside_morse_code_table_frame.pack(fill="both", expand=True)
         self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y")
         self.camera_image.pack(side="bottom")
         self.clear_btn.pack(side="top", fill="x")
         self.morse_code.pack(fill="both", expand=True)
-        self.left_eye_image.pack(side="bottom", padx=50, pady=50)
+        self.left_eye_image.pack(side="bottom", padx=100, pady=50)
         self.dot.pack(side="top")
-        self.right_eye_image.pack(side="bottom", padx=50, pady=50)
+        self.right_eye_image.pack(side="bottom", padx=100, pady=50)
         self.dash.pack(side="top")
         self.text.pack(fill="both", expand=True)
 
@@ -175,17 +183,20 @@ class View:
         self.translation_frame.pack(side="left", fill="both", expand=True)
 
     def fill_morse_code_tables(self):
-        self.morse_code_letters_table.configure(state="normal")
 
-        for i in range(1, self.language_letters_count_dict[self.morse_code_language_dict["language"]] + 1):
+        self.morse_code_letters_table.configure(state="normal")
+        self.morse_code_letters_table.delete(1.0, tk.END)
+
+        for i in range(0, self.language_letters_count_dict[self.language.get()]):
             key = list(self.morse_code_language_dict.keys())[i]
             self.morse_code_letters_table.insert("end", f"{self.morse_code_language_dict[key]} -> {key}\n")
 
         self.morse_code_letters_table.configure(state="disabled")
 
         self.morse_code_numbers_and_symbols_table.configure(state="normal")
+        self.morse_code_numbers_and_symbols_table.delete(1.0, tk.END)
 
-        for i in range(self.language_letters_count_dict[self.morse_code_language_dict["language"]] + 1, len(self.morse_code_language_dict)):
+        for i in range(self.language_letters_count_dict[self.language.get()], len(self.morse_code_language_dict)):
             key = list(self.morse_code_language_dict.keys())[i]
             self.morse_code_numbers_and_symbols_table.insert("end", f"{self.morse_code_language_dict[key]} {bool(len(key)) * '->'} {key}\n")
 
@@ -248,17 +259,21 @@ class View:
         self.text.delete("1.0", tk.END)
         self.text.configure(state="disabled")
 
+    def change_language(self, new_morse_code_language_dict):
+        self.morse_code_language_dict = new_morse_code_language_dict
+
 
 class Controller:
-    def __init__(self, morse_code_language_dict, language_letters_count_dict, left_eye, right_eye):
-        self.morse_code_language_dict = morse_code_language_dict
+    def __init__(self, languages, language_letters_count_dict, left_eye, right_eye):
+        self.languages = languages
         self.language_letters_count_dict = language_letters_count_dict
         self.left_eye = left_eye
         self.right_eye = right_eye
-        self.model = Model(morse_code_english_dict, self.process_signal)
-        self.view = View(self.morse_code_language_dict, self.language_letters_count_dict, self.reset)
+        self.view = View(self.languages["english"], self.language_letters_count_dict, self.reset)
+        self.model = Model(languages[self.view.language.get()], self.process_signal)
         self.view.fill_morse_code_tables()
         self.frame = None
+        self.view.language.trace_add("write", self.change_language)
 
     def main(self):
         self.frame, rgb_frame = self.model.get_camera_frame()
@@ -291,7 +306,13 @@ class Controller:
         self.model.reset()
         self.view.clear_morse_code_and_text()
 
+    def change_language(self, *args):
+        self.view.change_language(self.languages[self.view.language.get()])
+        self.view.fill_morse_code_tables()
+        self.model.change_language(self.languages[self.view.language.get()])
+        self.reset()
+
 if __name__ == "__main__":
-    controller = Controller(morse_code_english_dict, language_letters_count_dict, consts.LEFT_EYE, consts.RIGHT_EYE)
+    controller = Controller(consts.languages, consts.language_letters_count_dict, consts.LEFT_EYE, consts.RIGHT_EYE)
     controller.main()
     controller.view.screen.mainloop()
