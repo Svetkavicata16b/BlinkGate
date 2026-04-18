@@ -135,10 +135,12 @@ class View:
         self.closed_eye_image = ImageTk.PhotoImage(Image.open("../images/hidden.png").resize((100, 100)))
         self.change_camera_frame_image = None
         self.language = tk.StringVar(self.screen, value="english")
+        self.fps = tk.IntVar(self.screen, value=10)
 
         self.morse_code_table_frame = tk.Frame(self.screen)
         self.inside_morse_code_table_frame = tk.Frame(self.morse_code_table_frame)
         self.camera_frame = tk.Frame(self.screen)
+        self.fps_frame = tk.Frame(self.camera_frame)
         self.left_eye_frame = tk.Frame(self.camera_frame)
         self.right_eye_frame = tk.Frame(self.camera_frame)
         self.translation_frame = tk.Frame(self.screen)
@@ -146,10 +148,13 @@ class View:
         self.text_frame = tk.Frame(self.translation_frame)
 
         self.languages = tk.OptionMenu(self.morse_code_table_frame, self.language, *["english", "bulgarian"])
-        self.languages.configure(font=("Courier New", 20), indicatoron=False)
+        self.languages.configure(font=("Courier New", 20), indicatoron=False, highlightthickness=0)
         self.languages["menu"].configure(font=("Courier New", 20))
         self.morse_code_letters_table = tk.Text(self.inside_morse_code_table_frame, width=12, state="disabled", font=("Courier New", 16))
         self.morse_code_numbers_and_symbols_table = tk.Text(self.inside_morse_code_table_frame, width=12, state="disabled", font=("Courier New", 16))
+        self.fps_label = tk.Label(self.fps_frame, text=f"FPS: {self.fps.get()}", font=("Courier New", 20))
+        self.fps_slider = tk.Scale(self.fps_frame, from_=10, to=100, variable=self.fps, orient="horizontal", length=200)
+        self.fps_slider.configure(showvalue=False)
         self.camera_image = tk.Label(self.camera_frame)
         self.left_eye_image = tk.Label(self.left_eye_frame, image=self.open_eye_image)
         self.dot = tk.Label(self.left_eye_frame, text=".", font=("Courier New", 20))
@@ -161,18 +166,21 @@ class View:
 
         self.morse_code_letters_table.pack(side="left", fill="y")
         self.languages.pack(side="top", fill="x")
-        self.inside_morse_code_table_frame.pack(fill="both", expand=True)
         self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y")
+        self.fps_label.pack(side="left", padx=(0, 50))
+        self.fps_slider.pack(side="left", pady=20)
         self.camera_image.pack(side="bottom")
+        self.left_eye_image.pack(side="bottom", padx=100, pady=30)
+        self.dot.pack(side="top")
+        self.right_eye_image.pack(side="bottom", padx=100, pady=30)
+        self.dash.pack(side="top")
         self.clear_btn.pack(side="top", fill="x")
         self.morse_code.pack(fill="both", expand=True)
-        self.left_eye_image.pack(side="bottom", padx=100, pady=50)
-        self.dot.pack(side="top")
-        self.right_eye_image.pack(side="bottom", padx=100, pady=50)
-        self.dash.pack(side="top")
         self.text.pack(fill="both", expand=True)
 
+        self.inside_morse_code_table_frame.pack(fill="both", expand=True)
         self.morse_code_table_frame.pack(side="left", fill="y")
+        self.fps_frame.pack()
         self.left_eye_frame.pack(side="left")
         self.right_eye_frame.pack(side="right")
         self.camera_frame.pack(side="left")
@@ -262,6 +270,9 @@ class View:
     def change_language(self, new_morse_code_language_dict):
         self.morse_code_language_dict = new_morse_code_language_dict
 
+    def change_fps(self):
+        self.fps_label.configure(text=f"FPS: {self.fps.get()}")
+
 
 class Controller:
     def __init__(self, languages, language_letters_count_dict, left_eye, right_eye):
@@ -274,11 +285,12 @@ class Controller:
         self.view.fill_morse_code_tables()
         self.frame = None
         self.view.language.trace_add("write", self.change_language)
+        self.view.fps.trace_add("write", self.change_fps)
 
     def main(self):
         self.frame, rgb_frame = self.model.get_camera_frame()
         self.model.to_signal(rgb_frame)
-        self.view.screen.after(10, self.main)
+        self.view.screen.after(1000 // self.view.fps.get(), self.main)
 
     def process_signal(self, face_landmarker_result, image, timestamp_ms):
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(self.view.draw_eyes(self.frame, face_landmarker_result, self.left_eye, self.right_eye, (0, 255, 0)), cv2.COLOR_BGR2RGB))
@@ -311,6 +323,9 @@ class Controller:
         self.view.fill_morse_code_tables()
         self.model.change_language(self.languages[self.view.language.get()])
         self.reset()
+
+    def change_fps(self, *args):
+        self.view.change_fps()
 
 if __name__ == "__main__":
     controller = Controller(consts.languages, consts.language_letters_count_dict, consts.LEFT_EYE, consts.RIGHT_EYE)
