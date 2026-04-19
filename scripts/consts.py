@@ -111,11 +111,6 @@ language_letters_count_dict = {
     "bulgarian": 30,
 }
 
-languages_abbreviation = {
-    "english": "en",
-    "bulgarian": "bg"
-}
-
 languages_voices = {
     "english": "../resources/en_GB-alan-medium.onnx",
     "bulgarian": "../resources/bg_BG-dimitar-medium.onnx"
