@@ -111,6 +111,16 @@ language_letters_count_dict = {
     "bulgarian": 30,
 }
 
+languages_abbreviation = {
+    "english": "en",
+    "bulgarian": "bg"
+}
+
+languages_voices = {
+    "english": "../resources/en_GB-alan-medium.onnx",
+    "bulgarian": "../resources/bg_BG-dimitar-medium.onnx"
+}
+
 LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155,
             133, 173, 157, 158, 159, 160, 161, 246]
 

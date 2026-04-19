@@ -1,6 +1,9 @@
+import os
+import threading
 import tkinter as tk
 import time
-
+import subprocess
+import playsound3
 import consts
 import cv2
 import mediapipe as mp
@@ -13,6 +16,7 @@ class Model:
     def __init__(self, morse_code_language_dict, callback):
         self.morse_code_language_dict = morse_code_language_dict
         self.letter = ""
+        self.word = ""
         self.prev_eyes = [False, False]
         self.is_eyes_clear = False
         self.prev_time = 0
@@ -115,12 +119,22 @@ class Model:
 
     def reset(self):
         self.letter = ""
+        self.word = ""
         self.prev_eyes = [False, False]
         self.is_eyes_clear = False
         self.prev_time = 0
 
     def change_language(self, new_morse_code_language_dict):
         self.morse_code_language_dict = new_morse_code_language_dict
+
+    def replace_text(self, letter):
+        self.word = self.word[:-1] + letter
+
+    def add_text(self, letter, separator):
+        if separator == "":
+            self.word += letter
+        else:
+            self.word = letter
 
 
 class View:
@@ -136,6 +150,7 @@ class View:
         self.change_camera_frame_image = None
         self.language = tk.StringVar(self.screen, value="english")
         self.fps = tk.IntVar(self.screen, value=10)
+        self.audio = tk.BooleanVar(self.screen, value=False)
 
         self.morse_code_table_frame = tk.Frame(self.screen)
         self.inside_morse_code_table_frame = tk.Frame(self.morse_code_table_frame)
@@ -146,6 +161,7 @@ class View:
         self.translation_frame = tk.Frame(self.screen)
         self.morse_code_frame = tk.Frame(self.translation_frame)
         self.text_frame = tk.Frame(self.translation_frame)
+        self.audio_frame = tk.Frame(self.translation_frame)
 
         self.languages = tk.OptionMenu(self.morse_code_table_frame, self.language, *["english", "bulgarian"])
         self.languages.configure(font=("Courier New", 20), indicatoron=False, highlightthickness=0)
@@ -163,6 +179,7 @@ class View:
         self.clear_btn = tk.Button(self.translation_frame, text="Clear Text", font=("Courier New", 20), height=1, command=clearing_callback_function)
         self.morse_code = tk.Text(self.morse_code_frame, state="disabled", font=("Courier New", 20))
         self.text = tk.Text(self.text_frame, state="disabled", font=("Courier New", 20))
+        self.audio_checkbox = tk.Checkbutton(self.audio_frame, variable=self.audio, onvalue=True, offvalue=False, text="Audio", font=("Courier New", 20))
 
         self.morse_code_letters_table.pack(side="left", fill="y")
         self.languages.pack(side="top", fill="x")
@@ -177,6 +194,7 @@ class View:
         self.clear_btn.pack(side="top", fill="x")
         self.morse_code.pack(fill="both", expand=True)
         self.text.pack(fill="both", expand=True)
+        self.audio_checkbox.pack()
 
         self.inside_morse_code_table_frame.pack(fill="both", expand=True)
         self.morse_code_table_frame.pack(side="left", fill="y")
@@ -187,7 +205,8 @@ class View:
         self.morse_code_frame.pack_propagate(False)
         self.text_frame.pack_propagate(False)
         self.morse_code_frame.pack(side="top", fill="both", expand=True)
-        self.text_frame.pack(side="bottom", fill="both", expand=True)
+        self.text_frame.pack(side="top", fill="both", expand=True)
+        self.audio_frame.pack()
         self.translation_frame.pack(side="left", fill="both", expand=True)
 
     def fill_morse_code_tables(self):
@@ -275,15 +294,17 @@ class View:
 
 
 class Controller:
-    def __init__(self, languages, language_letters_count_dict, left_eye, right_eye):
+    def __init__(self, languages, language_letters_count_dict, languages_voices, left_eye, right_eye):
         self.languages = languages
         self.language_letters_count_dict = language_letters_count_dict
+        self.languages_voices = languages_voices
         self.left_eye = left_eye
         self.right_eye = right_eye
         self.view = View(self.languages["english"], self.language_letters_count_dict, self.reset)
         self.model = Model(languages[self.view.language.get()], self.process_signal)
         self.view.fill_morse_code_tables()
         self.frame = None
+        self.output_file_path = os.path.abspath("../audio/audio.wav")
         self.view.language.trace_add("write", self.change_language)
         self.view.fps.trace_add("write", self.change_fps)
 
@@ -310,9 +331,9 @@ class Controller:
         letter, separator = self.model.to_text(morse_letter, separator)
 
         if separator is None:
-            self.view.replace_text(letter)
+            self.replace_text(letter)
         else:
-            self.view.add_text(letter, separator)
+            self.add_text(letter, separator)
 
     def reset(self):
         self.model.reset()
@@ -327,7 +348,48 @@ class Controller:
     def change_fps(self, *args):
         self.view.change_fps()
 
+    def replace_text(self, letter):
+        self.view.replace_text(letter)
+        self.model.replace_text(letter)
+
+    def add_text(self, letter, separator):
+        self.view.add_text(letter, separator)
+
+        if separator == " " and self.view.audio.get():
+            self.say_word(self.model.word, self.view.language.get())
+
+        self.model.add_text(letter, separator)
+
+    # def say_word(self, word):
+    #     word = word.lower()
+    #     audio_obj = gtts.gTTS(text=word, lang=self.languages_abbreviation[self.view.language.get()])
+    #     audio_obj.save("../audio/audio.mp3")
+    #     playsound3.playsound(os.path.abspath("../audio/audio.mp3"), block=False)
+
+    def say_word(self, word, language):
+        word = word.lower()
+        model = self.languages_voices[language]
+
+        threading.Thread(target=self.play_tts, args=[word, model], daemon=True).start()
+
+
+    def play_tts(self, word, model):
+        cmd = [
+            "piper",
+            "--model", model,
+            "--output_file", self.output_file_path
+        ]
+
+        subprocess.run(
+            cmd,
+            input=word.encode("utf-8"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+        playsound3.playsound(self.output_file_path, block=False)
+
 if __name__ == "__main__":
-    controller = Controller(consts.languages, consts.language_letters_count_dict, consts.LEFT_EYE, consts.RIGHT_EYE)
+    controller = Controller(consts.languages, consts.language_letters_count_dict, consts.languages_voices, consts.LEFT_EYE, consts.RIGHT_EYE)
     controller.main()
     controller.view.screen.mainloop()
