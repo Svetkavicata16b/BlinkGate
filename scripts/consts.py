@@ -1,5 +1,5 @@
 languages = {
-    "english": {
+    "English": {
         ".-": "A",
         "-...": "B",
         "-.-.": "C",
@@ -49,7 +49,7 @@ languages = {
         ".-.-.": "+",
         "": ""
     },
-    "bulgarian": {
+    "Bulgarian": {
         ".-": "А",
         "-...": "Б",
         ".--": "В",
@@ -107,18 +107,18 @@ languages = {
 }
 
 language_letters_count_dict = {
-    "english": 26,
-    "bulgarian": 30,
+    "English": 26,
+    "Bulgarian": 30,
 }
 
 languages_voices = {
-    "english": "../resources/en_GB-alan-medium.onnx",
-    "bulgarian": "../resources/bg_BG-dimitar-medium.onnx"
+    "English": "../resources/en_GB-alan-medium.onnx",
+    "Bulgarian": "../resources/bg_BG-dimitar-medium.onnx"
 }
 
 languages_names = {
-    "english": "en",
-    "bulgarian": "bg"
+    "English": "en",
+    "Bulgarian": "bg"
 }
 
 LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155,

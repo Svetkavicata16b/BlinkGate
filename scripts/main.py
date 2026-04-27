@@ -156,6 +156,9 @@ class View:
         self.main_bg_color = "#F3F4F6"
         self.main_fg_color = "#F9FAFB"
         self.border_color = "#E5E7EB"
+        self.main_font = ("Courier New", 20, "bold")
+        self.morse_font = ("Courier New", 20, "bold")
+        self.big_font = ("Courier New", 54, "bold")
         self.screen = tk.CTk(fg_color=self.main_bg_color)
         self.screen.after(0, lambda: self.screen.state('zoomed'))
         self.screen.title("BlinkGate")
@@ -178,22 +181,22 @@ class View:
         self.text_frame = tk.CTkFrame(self.translation_frame, fg_color="transparent")
         self.audio_frame = tk.CTkFrame(self.translation_frame, fg_color="transparent")
 
-        self.languages = tk.CTkOptionMenu(self.morse_code_table_frame, values=["english", "bulgarian"], command=language_callback, font=("Courier New", 20, "bold"), dropdown_font=("Courier New", 20, "bold"), fg_color=self.main_color, button_color=self.main_color, button_hover_color=self.hover_color, text_color=self.main_fg_color)
-        self.morse_code_letters_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=("Courier New", 20, "bold"), fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
-        self.morse_code_numbers_and_symbols_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=("Courier New", 20, "bold"), fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
-        self.fps_label = tk.CTkLabel(self.fps_frame, text=f"FPS: {self.fps.get()}", font=("Courier New", 20, "bold"))
+        self.languages = tk.CTkOptionMenu(self.morse_code_table_frame, values=["English", "Bulgarian"], command=language_callback, font=self.main_font, dropdown_font=self.main_font, fg_color=self.main_color, button_color=self.main_color, button_hover_color=self.hover_color, text_color=self.main_fg_color)
+        self.morse_code_letters_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=self.morse_font, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
+        self.morse_code_numbers_and_symbols_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=self.morse_font, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
+        self.fps_label = tk.CTkLabel(self.fps_frame, text=f"FPS: {self.fps.get()}", font=self.main_font)
         self.fps_slider = tk.CTkSlider(self.fps_frame, from_=10, to=100, variable=self.fps, width=200, button_color=self.main_color, button_hover_color=self.hover_color)
         self.camera_image = tk.CTkLabel(self.camera_image_frame, text="")
         self.left_eye_image = tk.CTkLabel(self.left_eye_frame, image=self.open_eye_image, text="")
-        self.dot = tk.CTkLabel(self.left_eye_frame, text=".", font=("Courier New", 54, "bold"))
+        self.dot = tk.CTkLabel(self.left_eye_frame, text=".", font=self.big_font)
         self.right_eye_image = tk.CTkLabel(self.right_eye_frame, image=self.open_eye_image, text="")
-        self.dash = tk.CTkLabel(self.right_eye_frame, text="-", font=("Courier New", 54, "bold"))
-        self.clear_btn = tk.CTkButton(self.translation_frame, width=320, text="Clear Text", font=("Courier New", 20, "bold"), fg_color=self.main_color, hover_color=self.hover_color, corner_radius=5, command=clearing_callback_function, text_color=self.main_fg_color)
-        self.morse_code = tk.CTkTextbox(self.morse_code_frame, state="disabled", font=("Courier New", 20, "bold"), fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
-        self.text = tk.CTkTextbox(self.text_frame, state="disabled", font=("Courier New", 20, "bold"), fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
-        self.audio_checkbox = tk.CTkCheckBox(self.audio_frame, variable=self.audio, onvalue=True, offvalue=False, text="Audio", font=("Courier New", 20, "bold"), fg_color=self.main_color, hover_color=self.hover_color)
+        self.dash = tk.CTkLabel(self.right_eye_frame, text="-", font=self.big_font)
+        self.clear_btn = tk.CTkButton(self.translation_frame, width=320, text="Clear Text", font=self.main_font, fg_color=self.main_color, hover_color=self.hover_color, corner_radius=5, command=clearing_callback_function, text_color=self.main_fg_color)
+        self.morse_code = tk.CTkTextbox(self.morse_code_frame, state="disabled", font=self.main_font, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
+        self.text = tk.CTkTextbox(self.text_frame, state="disabled", font=self.main_font, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
+        self.audio_checkbox = tk.CTkCheckBox(self.audio_frame, variable=self.audio, onvalue=True, offvalue=False, text="Audio", font=self.main_font, fg_color=self.main_color, hover_color=self.hover_color)
 
-        self.languages.pack(side="top", fill="x", pady=(0, 10))
+        self.languages.pack(side="top", fill="x", pady=(0, 9))
         self.morse_code_letters_table.pack(side="left", fill="y", padx=(0, 5))
         self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y", padx=(5, 0))
         self.fps_label.pack(side="left", padx=(0, 50))
@@ -314,8 +317,8 @@ class Controller:
         self.languages_names = languages_names
         self.left_eye = left_eye
         self.right_eye = right_eye
-        self.view = View(self.languages["english"], self.reset, self.change_language)
-        self.model = Model(languages["english"], self.process_signal)
+        self.view = View(self.languages["English"], self.reset, self.change_language)
+        self.model = Model(languages["English"], self.process_signal)
         self.view.fill_morse_code_tables()
         self.frame = None
         self.output_file_path = os.path.abspath("../audio/audio.wav")
