@@ -1,9 +1,17 @@
 import os
+import sys
 import threading
-import tkinter as tk
+# import tkinter as tk
 import time
 import subprocess
+
+import PIL
+import customtkinter as tk
+
+import gtts
 import playsound3
+from PIL.ImageOps import expand
+
 import consts
 import cv2
 import mediapipe as mp
@@ -20,6 +28,7 @@ class Model:
         self.prev_eyes = [False, False]
         self.is_eyes_clear = False
         self.prev_time = 0
+        self.language = "english"
 
         self.vc = cv2.VideoCapture(0)
         self.model_path = "../resources/face_landmarker.task"
@@ -81,16 +90,17 @@ class Model:
         if eyes == [False, False] and self.prev_eyes[0] != self.prev_eyes[1] and self.is_eyes_clear:
             current_time = time.time()
 
-            if self.prev_time != 0:
-                if current_time - self.prev_time > 3:
-                    separator = " / "
-                elif current_time - self.prev_time > 1:
-                    separator = " "
+            if current_time > self.prev_time:
+                if self.prev_time != 0:
+                    if current_time - self.prev_time > 3:
+                        separator = " / "
+                    elif current_time - self.prev_time > 1:
+                        separator = " "
 
-            if self.prev_eyes[0]:
-                morse_symbol = "."
-            else:
-                morse_symbol = "-"
+                if self.prev_eyes[0]:
+                    morse_symbol = "."
+                else:
+                    morse_symbol = "-"
 
             self.prev_time = current_time
         elif eyes != [False, False] and (self.prev_eyes != eyes and self.prev_eyes != [False, False]):
@@ -138,94 +148,90 @@ class Model:
 
 
 class View:
-    def __init__(self, morse_code_language_dict, language_letters_count_dict, clearing_callback_function):
+    def __init__(self, morse_code_language_dict, clearing_callback_function, language_callback):
         self.morse_code_language_dict = morse_code_language_dict
-        self.language_letters_count_dict = language_letters_count_dict
-        self.screen = tk.Tk()
-        self.screen.state("zoomed")
+        self.language_letters_count = 26
+        self.screen = tk.CTk(fg_color="white")
+        self.screen.after(0, lambda: self.screen.state('zoomed'))
         self.screen.title("BlinkGate")
-        self.screen.iconphoto(False, tk.PhotoImage(file="../images/visible.png"))
         self.open_eye_image = ImageTk.PhotoImage(Image.open("../images/visible.png").resize((100, 100)))
         self.closed_eye_image = ImageTk.PhotoImage(Image.open("../images/hidden.png").resize((100, 100)))
+        self.screen.iconphoto(False, self.open_eye_image)
         self.change_camera_frame_image = None
-        self.language = tk.StringVar(self.screen, value="english")
         self.fps = tk.IntVar(self.screen, value=10)
         self.audio = tk.BooleanVar(self.screen, value=False)
 
-        self.morse_code_table_frame = tk.Frame(self.screen)
-        self.inside_morse_code_table_frame = tk.Frame(self.morse_code_table_frame)
-        self.camera_frame = tk.Frame(self.screen)
-        self.fps_frame = tk.Frame(self.camera_frame)
-        self.left_eye_frame = tk.Frame(self.camera_frame)
-        self.right_eye_frame = tk.Frame(self.camera_frame)
-        self.translation_frame = tk.Frame(self.screen)
-        self.morse_code_frame = tk.Frame(self.translation_frame)
-        self.text_frame = tk.Frame(self.translation_frame)
-        self.audio_frame = tk.Frame(self.translation_frame)
+        self.morse_code_table_frame = tk.CTkFrame(self.screen, fg_color="transparent")
+        self.inside_morse_code_table_frame = tk.CTkFrame(self.morse_code_table_frame, fg_color="transparent")
+        self.camera_frame = tk.CTkFrame(self.screen, fg_color="transparent")
+        self.fps_frame = tk.CTkFrame(self.camera_frame, fg_color="transparent")
+        self.left_eye_frame = tk.CTkFrame(self.camera_frame, fg_color="transparent")
+        self.right_eye_frame = tk.CTkFrame(self.camera_frame, fg_color="transparent")
+        self.translation_frame = tk.CTkFrame(self.screen, fg_color="transparent")
+        self.morse_code_frame = tk.CTkFrame(self.translation_frame, fg_color="transparent")
+        self.text_frame = tk.CTkFrame(self.translation_frame, fg_color="transparent")
+        self.audio_frame = tk.CTkFrame(self.translation_frame, fg_color="transparent")
 
-        self.languages = tk.OptionMenu(self.morse_code_table_frame, self.language, *["english", "bulgarian"])
-        self.languages.configure(font=("Courier New", 20), indicatoron=False, highlightthickness=0)
-        self.languages["menu"].configure(font=("Courier New", 20))
-        self.morse_code_letters_table = tk.Text(self.inside_morse_code_table_frame, width=12, state="disabled", font=("Courier New", 16))
-        self.morse_code_numbers_and_symbols_table = tk.Text(self.inside_morse_code_table_frame, width=12, state="disabled", font=("Courier New", 16))
-        self.fps_label = tk.Label(self.fps_frame, text=f"FPS: {self.fps.get()}", font=("Courier New", 20))
-        self.fps_slider = tk.Scale(self.fps_frame, from_=10, to=100, variable=self.fps, orient="horizontal", length=200)
-        self.fps_slider.configure(showvalue=False)
-        self.camera_image = tk.Label(self.camera_frame)
-        self.left_eye_image = tk.Label(self.left_eye_frame, image=self.open_eye_image)
-        self.dot = tk.Label(self.left_eye_frame, text=".", font=("Courier New", 20))
-        self.right_eye_image = tk.Label(self.right_eye_frame, image=self.open_eye_image)
-        self.dash = tk.Label(self.right_eye_frame, text="-", font=("Courier New", 20))
-        self.clear_btn = tk.Button(self.translation_frame, text="Clear Text", font=("Courier New", 20), height=1, command=clearing_callback_function)
-        self.morse_code = tk.Text(self.morse_code_frame, state="disabled", font=("Courier New", 20))
-        self.text = tk.Text(self.text_frame, state="disabled", font=("Courier New", 20))
-        self.audio_checkbox = tk.Checkbutton(self.audio_frame, variable=self.audio, onvalue=True, offvalue=False, text="Audio", font=("Courier New", 20))
+        self.languages = tk.CTkOptionMenu(self.morse_code_table_frame, values=["english", "bulgarian"], command=language_callback, font=("Courier New", 20, "bold"), dropdown_font=("Courier New", 20, "bold"))
+        self.morse_code_letters_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=("Courier New", 20, "bold"))
+        self.morse_code_numbers_and_symbols_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=("Courier New", 20, "bold"))
+        self.fps_label = tk.CTkLabel(self.fps_frame, text=f"FPS: {self.fps.get()}", font=("Courier New", 20, "bold"))
+        self.fps_slider = tk.CTkSlider(self.fps_frame, from_=10, to=100, variable=self.fps, width=200)
+        self.camera_image = tk.CTkLabel(self.camera_frame, text="")
+        self.left_eye_image = tk.CTkLabel(self.left_eye_frame, image=self.open_eye_image, text="")
+        self.dot = tk.CTkLabel(self.left_eye_frame, text=".", font=("Courier New", 20))
+        self.right_eye_image = tk.CTkLabel(self.right_eye_frame, image=self.open_eye_image, text="")
+        self.dash = tk.CTkLabel(self.right_eye_frame, text="-", font=("Courier New", 20))
+        self.clear_btn = tk.CTkButton(self.translation_frame, width=320, text="Clear Text", font=("Courier New", 20, "bold"), corner_radius=5, command=clearing_callback_function)
+        self.morse_code = tk.CTkTextbox(self.morse_code_frame, state="disabled", font=("Courier New", 20, "bold"))
+        self.text = tk.CTkTextbox(self.text_frame, state="disabled", font=("Courier New", 20, "bold"))
+        self.audio_checkbox = tk.CTkCheckBox(self.audio_frame, variable=self.audio, onvalue=True, offvalue=False, text="Audio", font=("Courier New", 20, "bold"))
 
-        self.morse_code_letters_table.pack(side="left", fill="y")
         self.languages.pack(side="top", fill="x")
-        self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y")
+        self.morse_code_letters_table.pack(side="left", fill="y", padx=(0, 5))
+        self.morse_code_numbers_and_symbols_table.pack(side="right", fill="y", padx=(5, 0))
         self.fps_label.pack(side="left", padx=(0, 50))
         self.fps_slider.pack(side="left", pady=20)
         self.camera_image.pack(side="bottom")
-        self.left_eye_image.pack(side="bottom", padx=100, pady=30)
+        self.left_eye_image.pack(side="bottom", padx=80, pady=30)
         self.dot.pack(side="top")
-        self.right_eye_image.pack(side="bottom", padx=100, pady=30)
+        self.right_eye_image.pack(side="bottom", padx=80, pady=30)
         self.dash.pack(side="top")
         self.clear_btn.pack(side="top", fill="x")
-        self.morse_code.pack(fill="both", expand=True)
-        self.text.pack(fill="both", expand=True)
-        self.audio_checkbox.pack()
+        self.morse_code.pack(fill="both", expand=True, pady=(0, 5))
+        self.text.pack(fill="both", expand=True, pady=(5, 0))
+        self.audio_checkbox.pack(pady=10)
 
         self.inside_morse_code_table_frame.pack(fill="both", expand=True)
-        self.morse_code_table_frame.pack(side="left", fill="y")
+        self.morse_code_table_frame.pack(side="left", fill="y", expand=True, padx=(10, 5), pady=10)
         self.fps_frame.pack()
         self.left_eye_frame.pack(side="left")
         self.right_eye_frame.pack(side="right")
-        self.camera_frame.pack(side="left")
+        self.camera_frame.pack(side="left", expand=True, padx=(5, 5), pady=10)
         self.morse_code_frame.pack_propagate(False)
         self.text_frame.pack_propagate(False)
         self.morse_code_frame.pack(side="top", fill="both", expand=True)
         self.text_frame.pack(side="top", fill="both", expand=True)
         self.audio_frame.pack()
-        self.translation_frame.pack(side="left", fill="both", expand=True)
+        self.translation_frame.pack(side="left", fill="y", expand=True, padx=(5, 10), pady=10)
 
     def fill_morse_code_tables(self):
 
         self.morse_code_letters_table.configure(state="normal")
         self.morse_code_letters_table.delete(1.0, tk.END)
 
-        for i in range(0, self.language_letters_count_dict[self.language.get()]):
+        for i in range(0, self.language_letters_count):
             key = list(self.morse_code_language_dict.keys())[i]
-            self.morse_code_letters_table.insert("end", f"{self.morse_code_language_dict[key]} -> {key}\n")
+            self.morse_code_letters_table.insert("end", f"  {self.morse_code_language_dict[key]} {key}\n")
 
         self.morse_code_letters_table.configure(state="disabled")
 
         self.morse_code_numbers_and_symbols_table.configure(state="normal")
         self.morse_code_numbers_and_symbols_table.delete(1.0, tk.END)
 
-        for i in range(self.language_letters_count_dict[self.language.get()], len(self.morse_code_language_dict)):
+        for i in range(self.language_letters_count, len(self.morse_code_language_dict)):
             key = list(self.morse_code_language_dict.keys())[i]
-            self.morse_code_numbers_and_symbols_table.insert("end", f"{self.morse_code_language_dict[key]} {bool(len(key)) * '->'} {key}\n")
+            self.morse_code_numbers_and_symbols_table.insert("end", f"  {self.morse_code_language_dict[key]}{bool(len(key)) * ' '}{key}\n")
 
         self.morse_code_numbers_and_symbols_table.configure(state="disabled")
 
@@ -286,26 +292,26 @@ class View:
         self.text.delete("1.0", tk.END)
         self.text.configure(state="disabled")
 
-    def change_language(self, new_morse_code_language_dict):
+    def change_language(self, new_morse_code_language_dict, new_language_letter_count):
         self.morse_code_language_dict = new_morse_code_language_dict
+        self.language_letters_count = new_language_letter_count
 
     def change_fps(self):
         self.fps_label.configure(text=f"FPS: {self.fps.get()}")
 
 
 class Controller:
-    def __init__(self, languages, language_letters_count_dict, languages_voices, left_eye, right_eye):
+    def __init__(self, languages, language_letters_count_dict, languages_names, left_eye, right_eye):
         self.languages = languages
         self.language_letters_count_dict = language_letters_count_dict
-        self.languages_voices = languages_voices
+        self.languages_names = languages_names
         self.left_eye = left_eye
         self.right_eye = right_eye
-        self.view = View(self.languages["english"], self.language_letters_count_dict, self.reset)
-        self.model = Model(languages[self.view.language.get()], self.process_signal)
+        self.view = View(self.languages["english"], self.reset, self.change_language)
+        self.model = Model(languages["english"], self.process_signal)
         self.view.fill_morse_code_tables()
         self.frame = None
         self.output_file_path = os.path.abspath("../audio/audio.wav")
-        self.view.language.trace_add("write", self.change_language)
         self.view.fps.trace_add("write", self.change_fps)
 
     def main(self):
@@ -339,10 +345,11 @@ class Controller:
         self.model.reset()
         self.view.clear_morse_code_and_text()
 
-    def change_language(self, *args):
-        self.view.change_language(self.languages[self.view.language.get()])
+    def change_language(self, language):
+        self.model.language = language
+        self.view.change_language(self.languages[self.model.language], self.language_letters_count_dict[self.model.language])
         self.view.fill_morse_code_tables()
-        self.model.change_language(self.languages[self.view.language.get()])
+        self.model.change_language(self.languages[self.model.language])
         self.reset()
 
     def change_fps(self, *args):
@@ -356,40 +363,42 @@ class Controller:
         self.view.add_text(letter, separator)
 
         if separator == " " and self.view.audio.get():
-            self.say_word(self.model.word, self.view.language.get())
+            self.say_word(self.model.word)
 
         self.model.add_text(letter, separator)
 
-    # def say_word(self, word):
-    #     word = word.lower()
-    #     audio_obj = gtts.gTTS(text=word, lang=self.languages_abbreviation[self.view.language.get()])
-    #     audio_obj.save("../audio/audio.mp3")
-    #     playsound3.playsound(os.path.abspath("../audio/audio.mp3"), block=False)
-
-    def say_word(self, word, language):
+    def say_word(self, word):
         word = word.lower()
-        model = self.languages_voices[language]
+        audio_obj = gtts.gTTS(text=word, lang=self.languages_names[self.model.language])
+        audio_obj.save("../audio/audio.mp3")
+        playsound3.playsound(os.path.abspath("../audio/audio.mp3"), block=False)
 
-        threading.Thread(target=self.play_tts, args=[word, model], daemon=True).start()
+    # def say_word(self, word, language):
+    #     word = word.lower()
+    #     model = os.path.abspath(self.languages_voices[language])
+    #
+    #     threading.Thread(target=self.play_tts, args=[word, model], daemon=True).start()
+    #
+    #
+    # def play_tts(self, word, model):
+    #     cmd = [
+    #         "piper.exe",
+    #         "--model", model,
+    #         "--output_file", self.output_file_path
+    #     ]
+    #
+    #     subprocess.run(
+    #         cmd,
+    #         input=word.encode("utf-8"),
+    #         stdout=subprocess.DEVNULL,
+    #         stderr=subprocess.DEVNULL,
+    #         creationflags=subprocess.CREATE_NO_WINDOW
+    #     )
+    #
+    #     playsound3.playsound(self.output_file_path, block=False)
 
-
-    def play_tts(self, word, model):
-        cmd = [
-            "piper",
-            "--model", model,
-            "--output_file", self.output_file_path
-        ]
-
-        subprocess.run(
-            cmd,
-            input=word.encode("utf-8"),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-
-        playsound3.playsound(self.output_file_path, block=False)
 
 if __name__ == "__main__":
-    controller = Controller(consts.languages, consts.language_letters_count_dict, consts.languages_voices, consts.LEFT_EYE, consts.RIGHT_EYE)
+    controller = Controller(consts.languages, consts.language_letters_count_dict, consts.languages_names, consts.LEFT_EYE, consts.RIGHT_EYE)
     controller.main()
     controller.view.screen.mainloop()

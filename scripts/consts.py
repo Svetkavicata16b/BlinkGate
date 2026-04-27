@@ -116,6 +116,11 @@ languages_voices = {
     "bulgarian": "../resources/bg_BG-dimitar-medium.onnx"
 }
 
+languages_names = {
+    "english": "en",
+    "bulgarian": "bg"
+}
+
 LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155,
             133, 173, 157, 158, 159, 160, 161, 246]
 
