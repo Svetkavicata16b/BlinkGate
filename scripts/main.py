@@ -20,6 +20,7 @@ import math
 from PIL import ImageTk, Image
 
 
+# Model class controlling the morse code logic
 class Model:
     def __init__(self, morse_code_language_dict, callback):
         self.morse_code_language_dict = morse_code_language_dict
@@ -28,7 +29,7 @@ class Model:
         self.prev_eyes = [False, False]
         self.is_eyes_clear = False
         self.prev_time = 0
-        self.language = "english"
+        self.language = "English"
 
         self.vc = cv2.VideoCapture(0)
         self.model_path = "../resources/face_landmarker.task"
@@ -147,6 +148,7 @@ class Model:
             self.word = letter
 
 
+# View class controlling the GUI
 class View:
     def __init__(self, morse_code_language_dict, clearing_callback_function, language_callback):
         self.morse_code_language_dict = morse_code_language_dict
@@ -318,6 +320,7 @@ class View:
         self.fps_label.configure(text=f"FPS: {self.fps.get()}")
 
 
+# Controller class connecting the other two classes together
 class Controller:
     def __init__(self, languages, language_letters_count_dict, languages_names, left_eye, right_eye):
         self.languages = languages
