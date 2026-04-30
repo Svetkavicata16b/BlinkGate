@@ -91,19 +91,21 @@ class Model:
         if eyes == [False, False] and self.prev_eyes[0] != self.prev_eyes[1] and self.is_eyes_clear:
             current_time = time.time()
 
-            if current_time > self.prev_time:
-                if self.prev_time != 0:
-                    if current_time - self.prev_time > 3:
-                        separator = " / "
-                    elif current_time - self.prev_time > 1:
-                        separator = " "
+            if current_time - self.prev_time > 0.2:
+                if current_time > self.prev_time:
+                    if self.prev_time != 0:
+                        if current_time - self.prev_time > 3:
+                            separator = " / "
+                        elif current_time - self.prev_time > 1:
+                            separator = " "
 
-                if self.prev_eyes[0]:
-                    morse_symbol = "."
-                else:
-                    morse_symbol = "-"
+                    if self.prev_eyes[0]:
+                        morse_symbol = "."
+                    else:
+                        morse_symbol = "-"
 
-            self.prev_time = current_time
+                self.prev_time = current_time
+
         elif eyes != [False, False] and (self.prev_eyes != eyes and self.prev_eyes != [False, False]):
             self.is_eyes_clear = False
 
