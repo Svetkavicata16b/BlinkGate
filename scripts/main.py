@@ -1,17 +1,8 @@
 import os
-import sys
-import threading
-# import tkinter as tk
 import time
-import subprocess
-
-import PIL
 import customtkinter as tk
-
 import gtts
 import playsound3
-from PIL.ImageOps import expand
-
 import consts
 import cv2
 import mediapipe as mp
@@ -48,6 +39,7 @@ class Model:
 
         self.landmarker = self.FaceLandmarker.create_from_options(self.options)
         self.start_time = time.time()
+        self.current_separator = 0
 
     def euclidean_dist(self, a, b):
         return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
@@ -74,10 +66,6 @@ class Model:
             left_eye_ear = (self.euclidean_dist(fl[385], fl[380]) + self.euclidean_dist(fl[387], fl[373])) / (2 * self.euclidean_dist(fl[362], fl[263]))
             right_eye_ear = (self.euclidean_dist(fl[160], fl[144]) + self.euclidean_dist(fl[158], fl[153])) / (2 * self.euclidean_dist(fl[33], fl[133]))
 
-            # print(left_eye_ear)
-            # print(right_eye_ear)
-            # print()
-
             return [left_eye_ear < 0.18, right_eye_ear < 0.18]
 
         return [False, False]
@@ -85,24 +73,25 @@ class Model:
     def to_morse_code(self, eyes: list[bool]):
         separator = ""
         morse_symbol = ""
+        current_time = time.time()
 
-        # print([eyes, self.prev_eyes, self.is_eyes_clear])
+        if self.prev_time:
+            if current_time - self.prev_time > 3 and self.current_separator < 2:
+                separator = "/ "
+                self.current_separator = 2
+            elif current_time - self.prev_time > 1 and self.current_separator < 1:
+                separator = " "
+                self.current_separator = 1
+
 
         if eyes == [False, False] and self.prev_eyes[0] != self.prev_eyes[1] and self.is_eyes_clear:
-            current_time = time.time()
-
             if current_time - self.prev_time > 0.2:
-                if current_time > self.prev_time:
-                    if self.prev_time != 0:
-                        if current_time - self.prev_time > 3:
-                            separator = " / "
-                        elif current_time - self.prev_time > 1:
-                            separator = " "
+                if self.prev_eyes[0]:
+                    morse_symbol = "."
+                else:
+                    morse_symbol = "-"
 
-                    if self.prev_eyes[0]:
-                        morse_symbol = "."
-                    else:
-                        morse_symbol = "-"
+                self.current_separator = 0
 
                 self.prev_time = current_time
 
@@ -122,7 +111,7 @@ class Model:
         else:
             self.letter = morse_symbol
 
-        return self.letter, {" / ": " ", " ": "", "": None}[separator]
+        return self.letter, {"/ ": " ", " ": "", "": None}[separator]
 
     def to_text(self, morse_letter, separator):
         try:
@@ -292,9 +281,9 @@ class View:
         self.morse_code.see("end")
         self.morse_code.configure(state="disabled")
 
-    def add_text(self, letter, separator):
+    def add_text(self, letter):
         self.text.configure(state="normal")
-        self.text.insert("end", separator + letter)
+        self.text.insert("end", letter)
         self.text.see("end")
         self.text.configure(state="disabled")
 
@@ -383,7 +372,7 @@ class Controller:
         self.model.replace_text(letter)
 
     def add_text(self, letter, separator):
-        self.view.add_text(letter, separator)
+        self.view.add_text(letter)
 
         if separator == " " and self.view.audio.get():
             self.say_word(self.model.word)
@@ -395,30 +384,6 @@ class Controller:
         audio_obj = gtts.gTTS(text=word, lang=self.languages_names[self.model.language])
         audio_obj.save("../audio/audio.mp3")
         playsound3.playsound(os.path.abspath("../audio/audio.mp3"), block=False)
-
-    # def say_word(self, word, language):
-    #     word = word.lower()
-    #     model = os.path.abspath(self.languages_voices[language])
-    #
-    #     threading.Thread(target=self.play_tts, args=[word, model], daemon=True).start()
-    #
-    #
-    # def play_tts(self, word, model):
-    #     cmd = [
-    #         "piper.exe",
-    #         "--model", model,
-    #         "--output_file", self.output_file_path
-    #     ]
-    #
-    #     subprocess.run(
-    #         cmd,
-    #         input=word.encode("utf-8"),
-    #         stdout=subprocess.DEVNULL,
-    #         stderr=subprocess.DEVNULL,
-    #         creationflags=subprocess.CREATE_NO_WINDOW
-    #     )
-    #
-    #     playsound3.playsound(self.output_file_path, block=False)
 
 
 if __name__ == "__main__":
