@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import gtts
 import playsound3
 import cv2
@@ -9,14 +10,33 @@ from view import View
 
 # Controller class connecting the other two classes together
 class Controller:
-    def __init__(self, languages, language_letters_count_dict, languages_names, left_eye, right_eye):
-        self.languages = languages
-        self.language_letters_count_dict = language_letters_count_dict
-        self.languages_names = languages_names
+    def __init__(self, left_eye, right_eye):
+        self.languages = {}
+        self.language_letter_count_dict = {}
+        self.languages_names = {}
+
+        languages_directory = Path("../resources/languages")
+
+        for file_path in languages_directory.iterdir():
+            if file_path.is_file():
+                content = file_path.read_text(encoding="utf-8")
+                current_language = eval(content)
+                self.languages[current_language["name"]] = current_language["language"]
+                self.language_letter_count_dict[current_language["name"]] = current_language["letter_count"]
+                self.languages_names[current_language["name"]] = current_language["abbreviation"]
+
+        if not list(self.languages_names.keys()):
+            exit(0)
+
+        default_language = list(self.languages_names.keys())[0]
+
+        if list(self.languages_names.keys()).count("English"):
+            default_language = "English"
+
         self.left_eye = left_eye
         self.right_eye = right_eye
-        self.view = View(self.languages["English"], self.reset, self.change_language)
-        self.model = Model(languages["English"], self.process_signal)
+        self.view = View(self.languages[default_language], list(self.languages_names.keys()), default_language, self.language_letter_count_dict[default_language], self.reset, self.change_language)
+        self.model = Model(self.languages[default_language], self.process_signal)
         self.view.fill_morse_code_tables()
         self.frame = None
         self.output_file_path = os.path.abspath("../audio/audio.wav")
@@ -54,8 +74,9 @@ class Controller:
         self.view.clear_morse_code_and_text()
 
     def change_language(self, language):
+        print(1)
         self.model.language = language
-        self.view.change_language(self.languages[self.model.language], self.language_letters_count_dict[self.model.language])
+        self.view.change_language(self.languages[self.model.language], self.language_letter_count_dict[self.model.language])
         self.view.fill_morse_code_tables()
         self.model.change_language(self.languages[self.model.language])
         self.reset()

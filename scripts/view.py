@@ -5,9 +5,9 @@ from PIL import ImageTk, Image
 
 # View class controlling the GUI
 class View:
-    def __init__(self, morse_code_language_dict, clearing_callback_function, language_callback):
+    def __init__(self, morse_code_language_dict, languages, default_language, default_language_letter_count, clearing_callback_function, language_callback):
         self.morse_code_language_dict = morse_code_language_dict
-        self.language_letters_count = 26
+        self.language_letter_count = default_language_letter_count
         self.main_color = "#1F883D" # "#16a34a"
         self.hover_color = "#1F793A"
         self.main_bg_color = "#F3F4F6"
@@ -38,7 +38,7 @@ class View:
         self.text_frame = tk.CTkFrame(self.translation_frame, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2, corner_radius=10)
         self.audio_frame = tk.CTkFrame(self.translation_frame, fg_color="transparent")
 
-        self.languages = tk.CTkOptionMenu(self.morse_code_table_frame, values=["English", "Bulgarian"], command=language_callback, font=self.main_font, dropdown_font=self.main_font, fg_color=self.main_color, button_color=self.main_color, button_hover_color=self.hover_color, text_color=self.main_fg_color)
+        self.languages = tk.CTkOptionMenu(self.morse_code_table_frame, values=languages, command=language_callback, font=self.main_font, dropdown_font=self.main_font, fg_color=self.main_color, button_color=self.main_color, button_hover_color=self.hover_color, text_color=self.main_fg_color)
         self.morse_code_letters_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=self.morse_font, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
         self.morse_code_numbers_and_symbols_table = tk.CTkTextbox(self.inside_morse_code_table_frame, width=160, state="disabled", font=self.morse_font, fg_color=self.main_fg_color, border_color=self.border_color, border_width=2)
         self.fps_label = tk.CTkLabel(self.fps_frame, text=f"FPS: {self.fps.get()}", font=self.main_font)
@@ -90,12 +90,15 @@ class View:
         self.audio_frame.pack()
         self.translation_frame.pack(side="left", fill="y", expand=True, padx=(5, 10), pady=10)
 
+        if default_language:
+            self.languages.set(default_language)
+
     def fill_morse_code_tables(self):
 
         self.morse_code_letters_table.configure(state="normal")
         self.morse_code_letters_table.delete(1.0, tk.END)
 
-        for i in range(0, self.language_letters_count):
+        for i in range(0, self.language_letter_count):
             key = list(self.morse_code_language_dict.keys())[i]
             self.morse_code_letters_table.insert("end", f"  {self.morse_code_language_dict[key]} {key}\n")
 
@@ -104,7 +107,7 @@ class View:
         self.morse_code_numbers_and_symbols_table.configure(state="normal")
         self.morse_code_numbers_and_symbols_table.delete(1.0, tk.END)
 
-        for i in range(self.language_letters_count, len(self.morse_code_language_dict)):
+        for i in range(self.language_letter_count, len(self.morse_code_language_dict)):
             key = list(self.morse_code_language_dict.keys())[i]
             self.morse_code_numbers_and_symbols_table.insert("end", f"  {self.morse_code_language_dict[key]}{bool(len(key)) * ' '}{key}\n")
 
@@ -169,7 +172,7 @@ class View:
 
     def change_language(self, new_morse_code_language_dict, new_language_letter_count):
         self.morse_code_language_dict = new_morse_code_language_dict
-        self.language_letters_count = new_language_letter_count
+        self.language_letter_count = new_language_letter_count
 
     def change_fps(self):
         self.fps_label.configure(text=f"FPS: {self.fps.get()}")
